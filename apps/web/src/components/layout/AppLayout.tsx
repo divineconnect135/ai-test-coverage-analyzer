@@ -9,8 +9,8 @@ export default function AppLayout() {
         </Link>
       </header>
 
-      <div className="mx-auto flex max-w-6xl flex-col md:flex-row">
-        <aside className="border-b border-slate-800 p-4 md:min-h-screen md:w-56 md:border-r md:border-b-0">
+      <div className="flex min-h-screen flex-col md:flex-row">
+        <aside className="w-full shrink-0 border-b border-slate-800 p-4 md:w-56 md:border-r md:border-b-0">
           <nav aria-label="Application navigation" className="flex gap-2 md:flex-col">
             <NavLink
               to="/dashboard"
