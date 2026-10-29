@@ -8,9 +8,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// --------------------------------------------------
+// ==========================================
 // ENUMS
-// --------------------------------------------------
+// ==========================================
 
 enum TestCaseType {
   POSITIVE
@@ -38,9 +38,9 @@ enum SuggestionPriority {
   HIGH
 }
 
-// --------------------------------------------------
+// ==========================================
 // USER
-// --------------------------------------------------
+// ==========================================
 
 model User {
   id            String   @id
@@ -51,12 +51,17 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Application relationships
   projects Project[]
+
+  // Better Auth relationships
+  sessions Session[]
+  accounts Account[]
 }
 
-// --------------------------------------------------
+// ==========================================
 // PROJECT
-// --------------------------------------------------
+// ==========================================
 
 model Project {
   id          String   @id @default(uuid())
@@ -66,7 +71,8 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   requirements Requirement[]
   testCases    TestCase[]
   analyses     AnalysisRun[]
@@ -74,9 +80,9 @@ model Project {
   @@index([userId, updatedAt])
 }
 
-// --------------------------------------------------
+// ==========================================
 // REQUIREMENT
-// --------------------------------------------------
+// ==========================================
 
 model Requirement {
   id          String   @id @default(uuid())
@@ -87,16 +93,17 @@ model Requirement {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project   Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   testCases TestCaseRequirement[]
 
   @@unique([projectId, code])
   @@index([projectId])
 }
 
-// --------------------------------------------------
+// ==========================================
 // TEST CASE
-// --------------------------------------------------
+// ==========================================
 
 model TestCase {
   id                 String         @id @default(uuid())
@@ -111,31 +118,34 @@ model TestCase {
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
-  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requirements     TestCaseRequirement[]
-  sourceSuggestion AnalysisSuggestion?   @relation("SavedFromSuggestion", fields: [sourceSuggestionId], references: [id], onDelete: SetNull)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  requirements TestCaseRequirement[]
+
+  sourceSuggestion AnalysisSuggestion? @relation("SavedFromSuggestion", fields: [sourceSuggestionId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
 }
 
-// --------------------------------------------------
-// TEST CASE ↔ REQUIREMENT
-// --------------------------------------------------
+// ==========================================
+// TEST CASE REQUIREMENT JOIN TABLE
+// ==========================================
 
 model TestCaseRequirement {
   testCaseId    String
   requirementId String
 
-  testCase    TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testCase TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
   requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
 
   @@id([testCaseId, requirementId])
   @@index([requirementId])
 }
 
-// --------------------------------------------------
+// ==========================================
 // AI ANALYSIS RUN
-// --------------------------------------------------
+// ==========================================
 
 model AnalysisRun {
   id                     String         @id @default(uuid())
@@ -152,15 +162,16 @@ model AnalysisRun {
   createdAt              DateTime       @default(now())
   completedAt            DateTime?
 
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   suggestions AnalysisSuggestion[]
 
   @@index([projectId, createdAt])
 }
 
-// --------------------------------------------------
+// ==========================================
 // AI ANALYSIS SUGGESTION
-// --------------------------------------------------
+// ==========================================
 
 model AnalysisSuggestion {
   id                    String             @id @default(uuid())
@@ -175,8 +186,70 @@ model AnalysisSuggestion {
   relatedRequirementIds String[]           @default([])
   createdAt             DateTime           @default(now())
 
-  analysisRun   AnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
-  savedTestCase TestCase?   @relation("SavedFromSuggestion")
+  analysisRun AnalysisRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+
+  savedTestCase TestCase? @relation("SavedFromSuggestion")
 
   @@index([analysisRunId])
+}
+
+// ==========================================
+// BETTER AUTH SESSION
+// ==========================================
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+// ==========================================
+// BETTER AUTH ACCOUNT
+// ==========================================
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+// ==========================================
+// BETTER AUTH VERIFICATION
+// ==========================================
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
