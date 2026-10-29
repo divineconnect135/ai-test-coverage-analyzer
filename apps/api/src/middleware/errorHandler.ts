@@ -18,8 +18,10 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
       error: {
         code: error.code,
         message: error.message,
+        ...(error.details ? { details: error.details } : {}),
       },
     })
+
     return
   }
 
