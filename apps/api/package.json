@@ -11,7 +11,8 @@
     "start": "node dist/server.js",
     "lint": "eslint src tests vitest.config.ts",
     "test:watch": "vitest",
-    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+    "db:check": "tsx src/scripts/checkPrisma.ts"
   },
   "keywords": [],
   "author": "",
