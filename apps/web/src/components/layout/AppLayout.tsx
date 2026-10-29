@@ -26,6 +26,19 @@ export default function AppLayout() {
               Dashboard
             </NavLink>
 
+            <NavLink
+              to="/projects"
+              className={({ isActive }) =>
+                `rounded-lg px-4 py-2 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              Projects
+            </NavLink>
+
             <Link
               to="/"
               className="rounded-lg px-4 py-2 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
