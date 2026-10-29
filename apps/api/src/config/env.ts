@@ -14,6 +14,20 @@ const envSchema = z.object({
       'CORS_ORIGIN must be an HTTP(S) origin without a path.',
     )
     .optional(),
+
+  DATABASE_URL: z
+    .url()
+    .refine(
+      (value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol),
+      'DATABASE_URL must be a PostgreSQL connection URL.',
+    ),
+
+  DIRECT_URL: z
+    .url()
+    .refine(
+      (value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol),
+      'DIRECT_URL must be a PostgreSQL connection URL.',
+    ),
 })
 
 const result = envSchema.safeParse(process.env)
