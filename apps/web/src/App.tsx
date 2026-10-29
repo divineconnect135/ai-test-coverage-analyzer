@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import CreateProject from './pages/CreateProject'
 import NotFound from './pages/NotFound'
+import ProjectDetails from './pages/ProjectDetails'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/new" element={<CreateProject />} />
+        <Route path="/projects/:projectId" element={<ProjectDetails />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

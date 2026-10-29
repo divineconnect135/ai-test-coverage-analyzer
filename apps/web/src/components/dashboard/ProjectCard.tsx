@@ -1,4 +1,5 @@
 import type { ProjectPreview } from '../../data/mockProjects'
+import { Link } from 'react-router'
 
 type ProjectCardProps = {
   project: ProjectPreview
@@ -22,6 +23,13 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           <dd className="mt-1 font-semibold text-slate-200">{project.testCaseCount}</dd>
         </div>
       </dl>
+
+      <Link
+        to={`/projects/${project.id}`}
+        className="mt-5 inline-flex rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-blue-400 transition hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-500"
+      >
+        View Project
+      </Link>
     </article>
   )
 }
