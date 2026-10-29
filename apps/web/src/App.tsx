@@ -1,63 +1,24 @@
-import { useState } from 'react'
+import { Route, Routes } from 'react-router'
 
-type HealthResponse = {
-  status: string
-  message: string
-}
+import PublicLayout from './components/layout/PublicLayout'
+import AppLayout from './components/layout/AppLayout'
 
-function App() {
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+import Landing from './pages/Landing'
+import Dashboard from './pages/Dashboard'
+import NotFound from './pages/NotFound'
 
-  async function checkApiConnection() {
-    setLoading(true)
-    setError(false)
-    setMessage('')
-
-    try {
-      const response = await fetch('/api/health')
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`)
-      }
-
-      const data: HealthResponse = await response.json()
-
-      setMessage(data.message)
-    } catch (err) {
-      console.error('API request failed:', err)
-      setError(true)
-      setMessage('Unable to connect to the backend.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+export default function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
-      <div className="max-w-xl text-center">
-        <h1 className="mb-4 text-4xl font-bold text-white">AI Test Coverage Analyzer</h1>
+    <Routes>
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Landing />} />
+      </Route>
 
-        <p className="mb-8 text-lg text-slate-400">
-          Identify potential test coverage gaps using AI.
-        </p>
+      <Route element={<AppLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Route>
 
-        <button
-          type="button"
-          onClick={checkApiConnection}
-          disabled={loading}
-          className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Checking...' : 'Check API Connection'}
-        </button>
-
-        <p role="status" className={`mt-6 ${error ? 'text-red-400' : 'text-green-400'}`}>
-          {message}
-        </p>
-      </div>
-    </main>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   )
 }
-
-export default App
