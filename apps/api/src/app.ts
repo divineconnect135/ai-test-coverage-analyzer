@@ -14,8 +14,10 @@ import { healthRouter } from './routes/health.routes.js'
 import { meRouter } from './routes/me.routes.js'
 import { projectsRouter } from './routes/projects.routes.js'
 import { requirementsRouter } from './routes/requirements.routes.js'
+import { installHttpSecurity } from './security/httpSecurity.js'
 
 export const app = express()
+installHttpSecurity(app)
 
 app.disable('x-powered-by')
 
@@ -39,7 +41,14 @@ app.use(requestLogger)
 app.all('/api/auth/*splat', toNodeHandler(auth))
 
 // JSON parsing for our own API endpoints.
-app.use(express.json({ limit: '100kb' }))
+app.use(express.json({ limit: '256kb' }))
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '256kb',
+  }),
+)
 
 // Existing application routes.
 app.use('/api', healthRouter)

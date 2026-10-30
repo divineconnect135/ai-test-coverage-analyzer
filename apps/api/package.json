@@ -35,12 +35,16 @@
     "vitest": "^5.0.5"
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "^1.7.14",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "better-auth": "^1.7.14",
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.2",
     "helmet": "^8.3.0",
+    "openai": "^7.45.1",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   }
