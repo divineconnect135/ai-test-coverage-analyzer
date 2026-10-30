@@ -1,8 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, FolderKanban, Pencil, Trash2, Save, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  FolderKanban,
+  Pencil,
+  Trash2,
+  Save,
+  X,
+  FileText,
+  FlaskConical,
+  Sparkles,
+} from 'lucide-react'
 
 import { deleteProject, getProject, updateProject, type Project } from '../lib/projects-api'
+
+import { RequirementsSection } from '../components/requirements/RequirementsSection'
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', {
@@ -12,9 +24,6 @@ function formatDate(value: string): string {
   })
 }
 
-// This component is remounted whenever projectId changes.
-// Its state automatically resets without calling setState
-// synchronously inside useEffect.
 function ProjectDetailsContent({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
 
@@ -53,9 +62,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         }
       })
 
-    return () => {
-      controller.abort()
-    }
+    return () => controller.abort()
   }, [projectId])
 
   function cancelEdit() {
@@ -70,7 +77,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (isSaving || isDeleting || !project) return
+    if (!project || isSaving || isDeleting) return
 
     const cleanedName = name.trim()
     const cleanedDescription = description.trim()
@@ -120,6 +127,17 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
     }
   }
 
+  function handleRequirementCountChange(difference: number) {
+    setProject((current) =>
+      current
+        ? {
+            ...current,
+            requirementCount: Math.max(0, current.requirementCount + difference),
+          }
+        : current,
+    )
+  }
+
   if (isLoading) {
     return (
       <div role="status" className="p-8 text-sm text-slate-500">
@@ -154,6 +172,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         Back to Projects
       </Link>
 
+      {/* Project header and editing */}
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
@@ -168,7 +187,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={isEditing || isSaving || isDeleting}
@@ -180,7 +199,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
               className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm disabled:opacity-50"
             >
               <Pencil size={16} />
-              Edit
+              Edit Project
             </button>
 
             <button
@@ -194,7 +213,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
               className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm text-red-700 disabled:opacity-50"
             >
               <Trash2 size={16} />
-              Delete
+              Delete Project
             </button>
           </div>
         </div>
@@ -215,12 +234,12 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
             className="mt-6 space-y-5 border-t pt-5"
           >
             <div>
-              <label htmlFor="edit-name" className="block text-sm font-medium">
+              <label htmlFor="edit-project-name" className="block text-sm font-medium">
                 Project Name
               </label>
 
               <input
-                id="edit-name"
+                id="edit-project-name"
                 type="text"
                 required
                 minLength={2}
@@ -233,12 +252,12 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
             </div>
 
             <div>
-              <label htmlFor="edit-description" className="block text-sm font-medium">
+              <label htmlFor="edit-project-description" className="block text-sm font-medium">
                 Description
               </label>
 
               <textarea
-                id="edit-description"
+                id="edit-project-description"
                 rows={5}
                 maxLength={1000}
                 value={description}
@@ -260,8 +279,8 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
 
               <button
                 type="button"
-                disabled={isSaving}
                 onClick={cancelEdit}
+                disabled={isSaving}
                 className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm"
               >
                 <X size={16} />
@@ -272,15 +291,11 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         )}
 
         {confirmDelete && (
-          <div
-            role="group"
-            aria-label="Delete project confirmation"
-            className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5"
-          >
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5">
             <h2 className="font-semibold text-red-800">Delete this project permanently?</h2>
 
             <p className="mt-2 text-sm text-red-700">
-              Deleting "{project.name}" will also remove its requirements, test cases, and analysis
+              Deleting "{project.name}" will remove its requirements, test cases, and analysis
               history. This action cannot be undone.
             </p>
 
@@ -316,43 +331,52 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         )}
       </section>
 
+      {/* Real project statistics */}
       <section className="grid gap-4 sm:grid-cols-3">
         {[
           {
             label: 'Requirements',
             value: project.requirementCount,
+            icon: FileText,
           },
           {
             label: 'Test Cases',
             value: project.testCaseCount,
+            icon: FlaskConical,
           },
           {
             label: 'AI Analyses',
             value: project.analysisCount,
+            icon: Sparkles,
           },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border bg-white p-6">
-            <p className="text-sm text-slate-500">{stat.label}</p>
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-xl border bg-white p-6">
+            <Icon size={20} className="text-blue-600" />
 
-            <p className="mt-3 text-3xl font-bold">{stat.value}</p>
+            <p className="mt-3 text-3xl font-bold">{value}</p>
+
+            <p className="mt-1 text-sm text-slate-500">{label}</p>
           </div>
         ))}
       </section>
 
-      <section className="rounded-xl border border-dashed p-8">
-        <h2 className="text-lg font-semibold">Project Workspace</h2>
+      {/* Phase 7 — Real requirements management */}
+      <RequirementsSection projectId={projectId} onCountChange={handleRequirementCountChange} />
+
+      {/* Future Phase 8 functionality */}
+      <section className="rounded-xl border border-dashed border-slate-300 p-8">
+        <h2 className="text-lg font-semibold">Test Case Management</h2>
 
         <p className="mt-2 text-sm text-slate-500">
-          Project information is saved in Neon PostgreSQL. Requirements, test cases, and AI analysis
-          tools will be added in upcoming phases.
+          In Phase 8, you'll add test cases, define test steps and expected results, and link tests
+          to the requirements created above.
         </p>
       </section>
     </div>
   )
 }
 
-// Public page component.
-// The key forces a clean state whenever the URL project changes.
+// Remount project state when navigating between project IDs.
 export function ProjectDetails() {
   const { projectId } = useParams<{
     projectId: string
