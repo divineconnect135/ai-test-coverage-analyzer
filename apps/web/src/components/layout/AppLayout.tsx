@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { authClient } from '../../../lib/auth-client'
+import { authClient } from '../../lib/auth-client'
 import { RenderErrorBoundary } from '../ui/RenderErrorBoundary'
 
 const navigation = [

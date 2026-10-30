@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 
-import { authClient } from '../../../lib/auth-client'
+import { authClient } from '../../lib/auth-client'
 
 export function LogoutButton() {
   const navigate = useNavigate()

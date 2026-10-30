@@ -11,7 +11,7 @@
     sans-serif;
 
   color-scheme: dark;
-  background-color: #020617;
+  background: #020617;
   color: #f1f5f9;
 
   font-synthesis: none;
@@ -29,7 +29,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background-color: #020617;
+  background: #020617;
 }
 
 #root {
@@ -79,7 +79,7 @@ main h4 {
 }
 
 ::selection {
-  background-color: #2563eb;
+  background: #2563eb;
   color: #fff;
 }
 
