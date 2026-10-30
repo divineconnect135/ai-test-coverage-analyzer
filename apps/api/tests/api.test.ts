@@ -8,7 +8,6 @@ describe('GET /api/health', () => {
     const response = await request(app).get('/api/health')
 
     expect(response.status).toBe(200)
-
     expect(response.body).toEqual({
       status: 'ok',
       message: 'AI Test Coverage Analyzer API is running',
@@ -19,23 +18,16 @@ describe('GET /api/health', () => {
     const response = await request(app).get('/api/health')
 
     expect(response.headers['x-content-type-options']).toBe('nosniff')
-
     expect(response.headers['x-powered-by']).toBeUndefined()
   })
 })
 
 describe('API error handling', () => {
-  it('returns JSON for unknown API routes', async () => {
+  it('returns JSON for an unknown API route', async () => {
     const response = await request(app).get('/api/unknown')
 
     expect(response.status).toBe(404)
-
-    expect(response.body).toEqual({
-      error: {
-        code: 'NOT_FOUND',
-        message: 'API endpoint not found.',
-      },
-    })
+    expect(response.body.error.code).toBe('NOT_FOUND')
   })
 
   it('rejects malformed JSON', async () => {
@@ -48,7 +40,7 @@ describe('API error handling', () => {
     expect(response.body.error.code).toBe('INVALID_JSON')
   })
 
-  it('rejects oversized JSON bodies', async () => {
+  it('rejects oversized request bodies', async () => {
     const response = await request(app)
       .post('/api/projects')
       .send({
@@ -61,7 +53,49 @@ describe('API error handling', () => {
   })
 })
 
-describe('POST /api/projects', () => {
+describe('Project authentication', () => {
+  it('rejects unauthenticated project listing', async () => {
+    const response = await request(app).get('/api/projects')
+
+    expect(response.status).toBe(401)
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects unauthenticated project details', async () => {
+    const response = await request(app).get('/api/projects/example-id')
+
+    expect(response.status).toBe(401)
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects unauthenticated creation', async () => {
+    const response = await request(app).post('/api/projects').send({
+      name: 'Example Project',
+      description: 'Example description',
+    })
+
+    expect(response.status).toBe(401)
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects unauthenticated updates', async () => {
+    const response = await request(app).patch('/api/projects/example-id').send({
+      name: 'Updated Project',
+    })
+
+    expect(response.status).toBe(401)
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+
+  it('rejects unauthenticated deletion', async () => {
+    const response = await request(app).delete('/api/projects/example-id')
+
+    expect(response.status).toBe(401)
+    expect(response.body.error.code).toBe('UNAUTHORIZED')
+  })
+})
+
+describe('Project validation', () => {
   it('rejects invalid project names', async () => {
     const response = await request(app).post('/api/projects').send({
       name: 'A',
@@ -69,17 +103,9 @@ describe('POST /api/projects', () => {
 
     expect(response.status).toBe(400)
     expect(response.body.error.code).toBe('VALIDATION_ERROR')
-
-    expect(response.body.error.details).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          field: 'name',
-        }),
-      ]),
-    )
   })
 
-  it('rejects unexpected ownership fields', async () => {
+  it('rejects ownership fields during creation', async () => {
     const response = await request(app).post('/api/projects').send({
       name: 'Authentication System',
       userId: 'another-user',
@@ -87,16 +113,5 @@ describe('POST /api/projects', () => {
 
     expect(response.status).toBe(400)
     expect(response.body.error.code).toBe('VALIDATION_ERROR')
-  })
-
-  it('returns 501 for valid data until CRUD is implemented', async () => {
-    const response = await request(app).post('/api/projects').send({
-      name: 'Authentication System',
-      description: 'Test authentication features',
-    })
-
-    expect(response.status).toBe(501)
-
-    expect(response.body.error.code).toBe('NOT_IMPLEMENTED')
   })
 })

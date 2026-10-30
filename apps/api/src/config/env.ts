@@ -28,6 +28,12 @@ const envSchema = z.object({
       (value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol),
       'DIRECT_URL must be a PostgreSQL connection URL.',
     ),
+
+  BETTER_AUTH_URL: z.url(),
+
+  WEB_ORIGIN: z.url(),
+
+  BETTER_AUTH_SECRET: z.string().min(32, 'Authentication secret must be at least 32 characters.'),
 })
 
 const result = envSchema.safeParse(process.env)

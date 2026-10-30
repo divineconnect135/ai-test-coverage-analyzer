@@ -1,179 +1,376 @@
-import { Link, useParams } from 'react-router'
-import { ArrowLeft, ClipboardList, History, ListChecks, Sparkles } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ArrowLeft, FolderKanban, Pencil, Trash2, Save, X } from 'lucide-react'
 
-import StatCard from '../components/dashboard/StatCard'
-import EmptyState from '../components/ui/EmptyState'
-import { mockProjects } from '../data/mockProjects'
-import { mockProjectDetails, type MockTestCase } from '../data/mockProjectDetails'
+import { deleteProject, getProject, updateProject, type Project } from '../lib/projects-api'
 
-const statusStyles: Record<MockTestCase['status'], string> = {
-  DRAFT: 'bg-slate-700 text-slate-200',
-  READY: 'bg-blue-500/10 text-blue-400',
-  COMPLETED: 'bg-emerald-500/10 text-emerald-400',
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
-export default function ProjectDetails() {
-  const { projectId } = useParams<'projectId'>()
+// This component is remounted whenever projectId changes.
+// Its state automatically resets without calling setState
+// synchronously inside useEffect.
+function ProjectDetailsContent({ projectId }: { projectId: string }) {
+  const navigate = useNavigate()
 
-  const project = mockProjects.find((item) => item.id === projectId)
-  const details = projectId ? mockProjectDetails[projectId] : undefined
+  const [project, setProject] = useState<Project | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  if (!project || !details) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [actionError, setActionError] = useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    void getProject(projectId, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return
+
+        setProject(result)
+        setName(result.name)
+        setDescription(result.description)
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+
+        setLoadError(error instanceof Error ? error.message : 'Unable to load project.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      controller.abort()
+    }
+  }, [projectId])
+
+  function cancelEdit() {
+    if (!project) return
+
+    setName(project.name)
+    setDescription(project.description)
+    setActionError('')
+    setIsEditing(false)
+  }
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (isSaving || isDeleting || !project) return
+
+    const cleanedName = name.trim()
+    const cleanedDescription = description.trim()
+
+    if (cleanedName.length < 2 || cleanedName.length > 100) {
+      setActionError('Project name must contain 2–100 characters.')
+      return
+    }
+
+    if (cleanedDescription.length > 1000) {
+      setActionError('Description cannot exceed 1000 characters.')
+      return
+    }
+
+    setActionError('')
+    setIsSaving(true)
+
+    try {
+      const updated = await updateProject(projectId, {
+        name: cleanedName,
+        description: cleanedDescription,
+      })
+
+      setProject(updated)
+      setName(updated.name)
+      setDescription(updated.description)
+      setIsEditing(false)
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : 'Unable to update project.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!project || isDeleting || isSaving) return
+
+    setIsDeleting(true)
+    setActionError('')
+
+    try {
+      await deleteProject(projectId)
+      navigate('/projects', { replace: true })
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : 'Unable to delete project.')
+      setIsDeleting(false)
+    }
+  }
+
+  if (isLoading) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-white">Project not found</h1>
+      <div role="status" className="p-8 text-sm text-slate-500">
+        Loading project details...
+      </div>
+    )
+  }
 
-        <p className="text-slate-400">No example project exists with this identifier.</p>
+  if (loadError || !project) {
+    return (
+      <div className="space-y-5 p-6 lg:p-8">
+        <Link to="/projects" className="text-sm font-medium text-blue-600">
+          Back to Projects
+        </Link>
 
-        <Link to="/projects" className="inline-block text-blue-400 hover:underline">
+        <div role="alert" className="rounded-xl border border-slate-200 p-8">
+          <h1 className="text-xl font-semibold">Project unavailable</h1>
+
+          <p className="mt-2 text-sm text-slate-500">{loadError || 'Project not found.'}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full space-y-7 p-6 lg:p-8">
+      <Link
+        to="/projects"
+        className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600"
+      >
+        <ArrowLeft size={17} />
+        Back to Projects
+      </Link>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="shrink-0 rounded-xl bg-blue-50 p-3 text-blue-600">
+              <FolderKanban size={26} />
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="break-words text-2xl font-bold">{project.name}</h1>
+
+              <p className="mt-1 text-sm text-slate-500">Updated {formatDate(project.updatedAt)}</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={isEditing || isSaving || isDeleting}
+              onClick={() => {
+                setActionError('')
+                setConfirmDelete(false)
+                setIsEditing(true)
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm disabled:opacity-50"
+            >
+              <Pencil size={16} />
+              Edit
+            </button>
+
+            <button
+              type="button"
+              disabled={isSaving || isDeleting}
+              onClick={() => {
+                cancelEdit()
+                setActionError('')
+                setConfirmDelete(true)
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm text-red-700 disabled:opacity-50"
+            >
+              <Trash2 size={16} />
+              Delete
+            </button>
+          </div>
+        </div>
+
+        {!isEditing && (
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold">Description</h2>
+
+            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
+              {project.description || 'No description provided.'}
+            </p>
+          </div>
+        )}
+
+        {isEditing && (
+          <form
+            onSubmit={(event) => void handleSave(event)}
+            className="mt-6 space-y-5 border-t pt-5"
+          >
+            <div>
+              <label htmlFor="edit-name" className="block text-sm font-medium">
+                Project Name
+              </label>
+
+              <input
+                id="edit-name"
+                type="text"
+                required
+                minLength={2}
+                maxLength={100}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                disabled={isSaving}
+                className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-description" className="block text-sm font-medium">
+                Description
+              </label>
+
+              <textarea
+                id="edit-description"
+                rows={5}
+                maxLength={1000}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={isSaving}
+                className="mt-2 w-full resize-y rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+              >
+                <Save size={16} />
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={cancelEdit}
+                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm"
+              >
+                <X size={16} />
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {confirmDelete && (
+          <div
+            role="group"
+            aria-label="Delete project confirmation"
+            className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5"
+          >
+            <h2 className="font-semibold text-red-800">Delete this project permanently?</h2>
+
+            <p className="mt-2 text-sm text-red-700">
+              Deleting "{project.name}" will also remove its requirements, test cases, and analysis
+              history. This action cannot be undone.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                disabled={isDeleting}
+                className="rounded-lg border bg-white px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={isDeleting}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm text-white disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Project'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {actionError && (
+          <p
+            role="alert"
+            className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
+            {actionError}
+          </p>
+        )}
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-3">
+        {[
+          {
+            label: 'Requirements',
+            value: project.requirementCount,
+          },
+          {
+            label: 'Test Cases',
+            value: project.testCaseCount,
+          },
+          {
+            label: 'AI Analyses',
+            value: project.analysisCount,
+          },
+        ].map((stat) => (
+          <div key={stat.label} className="rounded-xl border bg-white p-6">
+            <p className="text-sm text-slate-500">{stat.label}</p>
+
+            <p className="mt-3 text-3xl font-bold">{stat.value}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="rounded-xl border border-dashed p-8">
+        <h2 className="text-lg font-semibold">Project Workspace</h2>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Project information is saved in Neon PostgreSQL. Requirements, test cases, and AI analysis
+          tools will be added in upcoming phases.
+        </p>
+      </section>
+    </div>
+  )
+}
+
+// Public page component.
+// The key forces a clean state whenever the URL project changes.
+export function ProjectDetails() {
+  const { projectId } = useParams<{
+    projectId: string
+  }>()
+
+  if (!projectId) {
+    return (
+      <div className="p-8">
+        <h1 className="text-xl font-semibold">Project unavailable</h1>
+
+        <Link to="/projects" className="mt-4 inline-block text-sm text-blue-600">
           Back to Projects
         </Link>
       </div>
     )
   }
 
-  return (
-    <div className="space-y-10">
-      {/* Project heading */}
-      <header>
-        <Link
-          to="/projects"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"
-        >
-          <ArrowLeft size={16} aria-hidden="true" />
-          Back to Projects
-        </Link>
-
-        <h1 className="mt-6 text-3xl font-bold text-white">{project.name}</h1>
-
-        <p className="mt-2 text-slate-400">{project.description}</p>
-
-        <p className="mt-3 text-xs text-blue-400">Preview mode — fictional project data</p>
-      </header>
-
-      {/* Summary */}
-      <section aria-label="Project summary" className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Requirements" value={details.requirements.length} icon={ClipboardList} />
-
-        <StatCard title="Test Cases" value={details.testCases.length} icon={ListChecks} />
-
-        <StatCard title="Saved Analyses" value={0} icon={History} description="No mock analyses" />
-      </section>
-
-      {/* Section navigation */}
-      <nav
-        aria-label="Project sections"
-        className="flex flex-wrap gap-4 border-b border-slate-800 pb-4 text-sm"
-      >
-        <a href="#requirements" className="text-blue-400 hover:underline">
-          Requirements
-        </a>
-
-        <a href="#test-cases" className="text-blue-400 hover:underline">
-          Test Cases
-        </a>
-
-        <a href="#analysis" className="text-blue-400 hover:underline">
-          AI Analysis
-        </a>
-      </nav>
-
-      {/* Requirements */}
-      <section id="requirements" className="scroll-mt-6">
-        <h2 className="mb-5 text-xl font-semibold text-white">Requirements</h2>
-
-        <div className="space-y-3">
-          {details.requirements.map((requirement) => (
-            <article
-              key={requirement.id}
-              className="rounded-xl border border-slate-800 bg-slate-900 p-5"
-            >
-              <p className="text-xs font-medium text-blue-400">{requirement.id}</p>
-
-              <h3 className="mt-2 font-semibold text-white">{requirement.title}</h3>
-
-              <p className="mt-2 text-sm text-slate-400">{requirement.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* Test Cases */}
-      <section id="test-cases" className="scroll-mt-6">
-        <h2 className="mb-5 text-xl font-semibold text-white">Existing Test Cases</h2>
-
-        <div className="space-y-3">
-          {details.testCases.map((testCase) => (
-            <article
-              key={testCase.id}
-              className="rounded-xl border border-slate-800 bg-slate-900 p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs text-slate-500">{testCase.id}</p>
-
-                  <h3 className="mt-2 font-semibold text-white">{testCase.title}</h3>
-                </div>
-
-                <span
-                  className={`rounded-md px-3 py-1 text-xs font-medium ${statusStyles[testCase.status]}`}
-                >
-                  {testCase.status}
-                </span>
-              </div>
-
-              <p className="mt-4 text-xs text-slate-400">
-                Related requirements: {testCase.requirementIds.join(', ')}
-              </p>
-            </article>
-          ))}
-        </div>
-
-        <p className="mt-3 text-xs text-slate-500">
-          Completed status does not indicate a passing test result.
-        </p>
-      </section>
-
-      {/* AI Analysis */}
-      <section id="analysis" className="scroll-mt-6">
-        <h2 className="mb-5 text-xl font-semibold text-white">AI Test Analysis</h2>
-
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 text-center">
-          <Sparkles size={32} aria-hidden="true" className="mx-auto text-blue-400" />
-
-          <h3 className="mt-4 text-lg font-semibold text-white">
-            Discover potential coverage gaps
-          </h3>
-
-          <p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">
-            AI analysis will compare your requirements with existing test cases and suggest
-            potentially missing scenarios.
-          </p>
-
-          <button
-            type="button"
-            disabled
-            className="mt-6 cursor-not-allowed rounded-lg bg-slate-700 px-5 py-3 text-sm font-semibold text-slate-400"
-          >
-            Analyze with AI
-          </button>
-
-          <p className="mt-3 text-xs text-slate-500">Available after OpenAI backend integration.</p>
-        </div>
-      </section>
-
-      {/* History */}
-      <section aria-labelledby="history-heading">
-        <h2 id="history-heading" className="mb-5 text-xl font-semibold text-white">
-          Recent Analyses
-        </h2>
-
-        <EmptyState
-          icon={History}
-          title="No analyses yet"
-          description="Saved analysis results will appear here after the AI analysis feature is implemented."
-        />
-      </section>
-    </div>
-  )
+  return <ProjectDetailsContent key={projectId} projectId={projectId} />
 }
+
+export default ProjectDetails

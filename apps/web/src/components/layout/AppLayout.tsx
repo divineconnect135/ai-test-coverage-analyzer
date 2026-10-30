@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router'
 import { LayoutDashboard, FolderKanban, House } from 'lucide-react'
+import { LogoutButton } from '../auth/LogoutButton'
 
 const navigation = [
   {
@@ -51,6 +52,7 @@ export default function AppLayout() {
                 </NavLink>
               )
             })}
+            <LogoutButton />
 
             <Link
               to="/"
