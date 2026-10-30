@@ -13,19 +13,24 @@ import { validateBody } from '../middleware/validateBody.js'
 
 import { createProjectSchema, updateProjectSchema } from '../schemas/project.schema.js'
 
+import { testCasesRouter } from './test-cases.routes.js'
+
 export const projectsRouter = Router()
 
-// List projects
+// GET /api/projects
 projectsRouter.get('/', requireAuth, listProjects)
 
-// Create project
+// POST /api/projects
 projectsRouter.post('/', validateBody(createProjectSchema), requireAuth, createProject)
 
-// Get one project
+// Nested test case routes.
+projectsRouter.use('/:projectId/test-cases', testCasesRouter)
+
+// GET /api/projects/:projectId
 projectsRouter.get('/:projectId', requireAuth, getProject)
 
-// Update project
+// PATCH /api/projects/:projectId
 projectsRouter.patch('/:projectId', requireAuth, validateBody(updateProjectSchema), updateProject)
 
-// Delete project
+// DELETE /api/projects/:projectId
 projectsRouter.delete('/:projectId', requireAuth, deleteProject)

@@ -15,6 +15,7 @@ import {
 import { deleteProject, getProject, updateProject, type Project } from '../lib/projects-api'
 
 import { RequirementsSection } from '../components/requirements/RequirementsSection'
+import { TestCasesSection } from '../components/test-cases/TestCasesSection'
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', {
@@ -39,6 +40,8 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [actionError, setActionError] = useState('')
+
+  const [requirementsVersion, setRequirementsVersion] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -92,8 +95,8 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
       return
     }
 
-    setActionError('')
     setIsSaving(true)
+    setActionError('')
 
     try {
       const updated = await updateProject(projectId, {
@@ -136,6 +139,21 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
           }
         : current,
     )
+
+    // Refresh test cases when a requirement is
+    // created or deleted so their links stay current.
+    setRequirementsVersion((current) => current + 1)
+  }
+
+  function handleTestCaseCountChange(difference: number) {
+    setProject((current) =>
+      current
+        ? {
+            ...current,
+            testCaseCount: Math.max(0, current.testCaseCount + difference),
+          }
+        : current,
+    )
   }
 
   if (isLoading) {
@@ -172,7 +190,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         Back to Projects
       </Link>
 
-      {/* Project header and editing */}
+      {/* Project header */}
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
@@ -295,15 +313,15 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
             <h2 className="font-semibold text-red-800">Delete this project permanently?</h2>
 
             <p className="mt-2 text-sm text-red-700">
-              Deleting "{project.name}" will remove its requirements, test cases, and analysis
+              Deleting "{project.name}" will also remove its requirements, test cases, and analysis
               history. This action cannot be undone.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
                 disabled={isDeleting}
+                onClick={() => setConfirmDelete(false)}
                 className="rounded-lg border bg-white px-4 py-2 text-sm"
               >
                 Cancel
@@ -311,8 +329,8 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
 
               <button
                 type="button"
-                onClick={() => void handleDelete()}
                 disabled={isDeleting}
+                onClick={() => void handleDelete()}
                 className="rounded-lg bg-red-700 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 {isDeleting ? 'Deleting...' : 'Yes, Delete Project'}
@@ -331,7 +349,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         )}
       </section>
 
-      {/* Real project statistics */}
+      {/* Project statistics */}
       <section className="grid gap-4 sm:grid-cols-3">
         {[
           {
@@ -360,23 +378,31 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         ))}
       </section>
 
-      {/* Phase 7 — Real requirements management */}
+      {/* Phase 7: Requirements */}
       <RequirementsSection projectId={projectId} onCountChange={handleRequirementCountChange} />
 
-      {/* Future Phase 8 functionality */}
+      {/* Phase 8: Test Cases */}
+      <TestCasesSection
+        key={`${projectId}-${requirementsVersion}`}
+        projectId={projectId}
+        onCountChange={handleTestCaseCountChange}
+      />
+
+      {/* Future analysis */}
       <section className="rounded-xl border border-dashed border-slate-300 p-8">
-        <h2 className="text-lg font-semibold">Test Case Management</h2>
+        <h2 className="text-lg font-semibold">AI Test Coverage Analysis</h2>
 
         <p className="mt-2 text-sm text-slate-500">
-          In Phase 8, you'll add test cases, define test steps and expected results, and link tests
-          to the requirements created above.
+          Your requirements and test cases are now stored in Neon PostgreSQL. The upcoming analysis
+          phases will compare them, identify gaps, and recommend missing tests.
         </p>
       </section>
     </div>
   )
 }
 
-// Remount project state when navigating between project IDs.
+// Changing projectId creates a fresh component state.
+// This avoids synchronous state resets inside useEffect.
 export function ProjectDetails() {
   const { projectId } = useParams<{
     projectId: string
