@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { ArrowUpRight, FolderKanban, Plus, RefreshCw, Search } from 'lucide-react'
 
 import { getProjects, type Project } from '../lib/projects-api'

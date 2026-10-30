@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   FileText,
   FlaskConical,
   FolderKanban,
+  History,
   Pencil,
   Save,
   Sparkles,
@@ -22,6 +23,8 @@ import { RequirementsSection } from '../components/requirements/RequirementsSect
 import { TestCasesSection } from '../components/test-cases/TestCasesSection'
 
 import { AnalysisSection } from '../components/analysis/AnalysisSection'
+
+import { AnalysisHistorySection } from '../components/analysis/AnalysisHistorySection'
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', {
@@ -48,7 +51,6 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [actionError, setActionError] = useState('')
 
-  // Used to refresh dependent workspaces.
   const [requirementsVersion, setRequirementsVersion] = useState(0)
 
   const [savedTestsVersion, setSavedTestsVersion] = useState(0)
@@ -158,8 +160,6 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         : current,
     )
 
-    // Requirements changed: update test-case linking
-    // options and the AI analysis input preview.
     setRequirementsVersion((current) => current + 1)
 
     setAnalysisInputsVersion((current) => current + 1)
@@ -179,16 +179,14 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   }
 
   function handleSuggestionSaved() {
-    // The suggestion is saved as a new test case.
     handleTestCaseCountChange(1)
 
-    // Refresh the Test Cases section to display it.
     setSavedTestsVersion((current) => current + 1)
   }
 
   if (isLoading) {
     return (
-      <div role="status" className="p-8 text-sm text-slate-500">
+      <div role="status" className="p-8 text-sm text-slate-300">
         Loading project details...
       </div>
     )
@@ -197,187 +195,197 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   if (loadError || !project) {
     return (
       <div className="space-y-5 p-6 lg:p-8">
-        <Link to="/projects" className="text-sm font-medium text-blue-600">
+        <Link to="/projects" className="text-sm font-medium text-blue-400">
           Back to Projects
         </Link>
 
-        <div role="alert" className="rounded-xl border border-slate-200 p-8">
-          <h1 className="text-xl font-semibold">Project unavailable</h1>
+        <div role="alert" className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
+          <h1 className="text-xl font-semibold text-white">Project unavailable</h1>
 
-          <p className="mt-2 text-sm text-slate-500">{loadError || 'Project not found.'}</p>
+          <p className="mt-2 text-sm text-slate-300">{loadError || 'Project not found.'}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="w-full space-y-7 p-6 lg:p-8">
+    <div className="w-full space-y-7 p-6 text-slate-100 lg:p-8">
       <Link
         to="/projects"
-        className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-blue-600"
+        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400"
       >
         <ArrowLeft size={17} />
         Back to Projects
       </Link>
 
-      {/* Project header, edit form, and deletion */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="shrink-0 rounded-xl bg-blue-50 p-3 text-blue-600">
-              <FolderKanban size={26} />
+      {/* Project details */}
+      <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl shadow-black/10">
+        <div className="border-b border-slate-800 bg-gradient-to-r from-blue-950/60 via-slate-900 to-slate-900 px-6 py-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="shrink-0 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-blue-400">
+                <FolderKanban size={26} />
+              </div>
+
+              <div className="min-w-0">
+                <h1 className="break-words text-2xl font-bold text-white lg:text-3xl">
+                  {project.name}
+                </h1>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  Updated {formatDate(project.updatedAt)}
+                </p>
+              </div>
             </div>
 
-            <div className="min-w-0">
-              <h1 className="break-words text-2xl font-bold">{project.name}</h1>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={isEditing || isSaving || isDeleting}
+                onClick={() => {
+                  setActionError('')
+                  setConfirmDelete(false)
+                  setIsEditing(true)
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 disabled:opacity-50"
+              >
+                <Pencil size={16} />
+                Edit Project
+              </button>
 
-              <p className="mt-1 text-sm text-slate-500">Updated {formatDate(project.updatedAt)}</p>
+              <button
+                type="button"
+                disabled={isSaving || isDeleting}
+                onClick={() => {
+                  cancelEdit()
+                  setActionError('')
+                  setConfirmDelete(true)
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-500/15 disabled:opacity-50"
+              >
+                <Trash2 size={16} />
+                Delete Project
+              </button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={isEditing || isSaving || isDeleting}
-              onClick={() => {
-                setActionError('')
-                setConfirmDelete(false)
-                setIsEditing(true)
-              }}
-              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm disabled:opacity-50"
-            >
-              <Pencil size={16} />
-              Edit Project
-            </button>
-
-            <button
-              type="button"
-              disabled={isSaving || isDeleting}
-              onClick={() => {
-                cancelEdit()
-                setActionError('')
-                setConfirmDelete(true)
-              }}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm text-red-700 disabled:opacity-50"
-            >
-              <Trash2 size={16} />
-              Delete Project
-            </button>
           </div>
         </div>
 
-        {!isEditing && (
-          <div className="mt-6">
-            <h2 className="text-sm font-semibold">Description</h2>
-
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
-              {project.description || 'No description provided.'}
-            </p>
-          </div>
-        )}
-
-        {isEditing && (
-          <form
-            onSubmit={(event) => void handleSave(event)}
-            className="mt-6 space-y-5 border-t pt-5"
-          >
+        <div className="p-6">
+          {!isEditing && (
             <div>
-              <label htmlFor="edit-project-name" className="block text-sm font-medium">
-                Project Name
-              </label>
+              <h2 className="text-sm font-semibold text-slate-200">Description</h2>
 
-              <input
-                id="edit-project-name"
-                type="text"
-                required
-                minLength={2}
-                maxLength={100}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                disabled={isSaving}
-                className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
-              />
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">
+                {project.description || 'No description provided.'}
+              </p>
             </div>
+          )}
 
-            <div>
-              <label htmlFor="edit-project-description" className="block text-sm font-medium">
-                Description
-              </label>
+          {isEditing && (
+            <form onSubmit={(event) => void handleSave(event)} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="edit-project-name"
+                  className="block text-sm font-semibold text-slate-200"
+                >
+                  Project Name
+                </label>
 
-              <textarea
-                id="edit-project-description"
-                rows={5}
-                maxLength={1000}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                disabled={isSaving}
-                className="mt-2 w-full resize-y rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
-              />
+                <input
+                  id="edit-project-name"
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  disabled={isSaving}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="edit-project-description"
+                  className="block text-sm font-semibold text-slate-200"
+                >
+                  Description
+                </label>
+
+                <textarea
+                  id="edit-project-description"
+                  rows={5}
+                  maxLength={1000}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  disabled={isSaving}
+                  className="mt-2 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                >
+                  <Save size={16} />
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={cancelEdit}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700"
+                >
+                  <X size={16} />
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {confirmDelete && (
+            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-950/30 p-5">
+              <h2 className="font-semibold text-red-100">Delete this project permanently?</h2>
+
+              <p className="mt-2 text-sm leading-6 text-red-200">
+                Deleting "{project.name}" also deletes its requirements, test cases, and analysis
+                history. This action cannot be undone.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => void handleDelete()}
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete Project'}
+                </button>
+              </div>
             </div>
+          )}
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
-              >
-                <Save size={16} />
-
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
-
-              <button
-                type="button"
-                onClick={cancelEdit}
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm"
-              >
-                <X size={16} />
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        {confirmDelete && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-5">
-            <h2 className="font-semibold text-red-800">Delete this project permanently?</h2>
-
-            <p className="mt-2 text-sm text-red-700">
-              Deleting "{project.name}" also deletes its requirements, test cases, and analysis
-              history. This action cannot be undone.
+          {actionError && (
+            <p
+              role="alert"
+              className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200"
+            >
+              {actionError}
             </p>
-
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setConfirmDelete(false)}
-                className="rounded-lg border bg-white px-4 py-2 text-sm"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => void handleDelete()}
-                className="rounded-lg bg-red-700 px-4 py-2 text-sm text-white disabled:opacity-50"
-              >
-                {isDeleting ? 'Deleting...' : 'Yes, Delete Project'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {actionError && (
-          <p
-            role="alert"
-            className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-          >
-            {actionError}
-          </p>
-        )}
+          )}
+        </div>
       </section>
 
       {/* Live project statistics */}
@@ -399,40 +407,63 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
             icon: Sparkles,
           },
         ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="rounded-xl border bg-white p-6">
-            <Icon size={20} className="text-blue-600" />
+          <div
+            key={label}
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl shadow-black/10"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-300">{label}</p>
 
-            <p className="mt-3 text-3xl font-bold">{value}</p>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-blue-400">
+                <Icon size={20} />
+              </div>
+            </div>
 
-            <p className="mt-1 text-sm text-slate-500">{label}</p>
+            <p className="mt-5 text-4xl font-bold text-white">{value}</p>
+
+            <p className="mt-2 text-xs text-slate-400">Current project total</p>
           </div>
         ))}
       </section>
 
-      <a
-        href="#ai-analysis"
-        className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
-      >
-        <BrainCircuit size={17} />
-        Go to AI Analysis
-      </a>
+      {/* Quick navigation */}
+      <div className="flex flex-wrap gap-5">
+        <a
+          href="#ai-analysis"
+          className="inline-flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300"
+        >
+          <BrainCircuit size={17} />
+          Go to AI Analysis
+        </a>
 
-      {/* Phase 7: Requirements */}
+        <a
+          href="#analysis-history"
+          className="inline-flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300"
+        >
+          <History size={17} />
+          Go to Analysis History
+        </a>
+      </div>
+
+      {/* Phase 7 */}
       <RequirementsSection projectId={projectId} onCountChange={handleRequirementCountChange} />
 
-      {/* Phase 8: Test Cases */}
+      {/* Phase 8 */}
       <TestCasesSection
         key={`${projectId}-${requirementsVersion}-${savedTestsVersion}`}
         projectId={projectId}
         onCountChange={handleTestCaseCountChange}
       />
 
-      {/* Phase 10: AI analysis and saving suggestions */}
+      {/* Phases 9–10 */}
       <AnalysisSection
         projectId={projectId}
         refreshToken={analysisInputsVersion}
         onTestCaseSaved={handleSuggestionSaved}
       />
+
+      {/* Phase 11 */}
+      <AnalysisHistorySection projectId={projectId} />
     </div>
   )
 }
@@ -446,9 +477,9 @@ export function ProjectDetails() {
   if (!projectId) {
     return (
       <div className="p-8">
-        <h1 className="text-xl font-semibold">Project unavailable</h1>
+        <h1 className="text-xl font-semibold text-white">Project unavailable</h1>
 
-        <Link to="/projects" className="mt-4 inline-block text-sm text-blue-600">
+        <Link to="/projects" className="mt-4 inline-block text-sm text-blue-400">
           Back to Projects
         </Link>
       </div>

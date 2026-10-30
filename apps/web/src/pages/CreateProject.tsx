@@ -1,142 +1,181 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { ArrowLeft } from 'lucide-react'
-import { Link } from 'react-router'
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, FolderPlus, LoaderCircle } from 'lucide-react'
 
-import FormField from '../components/ui/FormField'
+import { createProject } from '../lib/projects-api'
 
-type ProjectDraft = {
-  name: string
-  description: string
-}
+export function CreateProject() {
+  const navigate = useNavigate()
 
-export default function CreateProject() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [nameError, setNameError] = useState('')
-  const [preview, setPreview] = useState<ProjectDraft | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const trimmedName = name.trim()
+    if (isSubmitting) return
 
-    if (trimmedName.length < 2) {
-      setNameError('Project name must contain at least 2 characters.')
-      setPreview(null)
+    const cleanedName = name.trim()
+    const cleanedDescription = description.trim()
+
+    if (cleanedName.length < 2 || cleanedName.length > 100) {
+      setError('Project name must contain 2–100 characters.')
       return
     }
 
-    setNameError('')
+    if (cleanedDescription.length > 1000) {
+      setError('Description cannot exceed 1000 characters.')
+      return
+    }
 
-    // UI-only preview. No data is saved yet.
-    setPreview({
-      name: trimmedName,
-      description: description.trim(),
-    })
+    setError('')
+    setIsSubmitting(true)
+
+    try {
+      // Send the project to the real Express API.
+      // The API associates the project with the
+      // authenticated user and saves it in Neon.
+      const project = await createProject({
+        name: cleanedName,
+        description: cleanedDescription,
+      })
+
+      // Navigate to the newly saved project.
+      navigate(`/projects/${project.id}`, {
+        replace: true,
+      })
+    } catch (reason: unknown) {
+      setError(
+        reason instanceof Error ? reason.message : 'Unable to create project. Please try again.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
       <Link
         to="/projects"
-        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"
+        className="inline-flex items-center gap-2 text-sm text-slate-400 transition hover:text-white"
       >
-        <ArrowLeft size={16} aria-hidden="true" />
+        <ArrowLeft size={17} />
         Back to Projects
       </Link>
 
-      <header className="mt-8">
-        <h1 className="text-3xl font-bold text-white">Create Project</h1>
+      <header>
+        <div className="flex items-center gap-3">
+          <FolderPlus size={28} className="text-blue-500" />
 
-        <p className="mt-2 text-slate-400">
-          Define a project to organize requirements and test cases.
+          <h1 className="text-3xl font-bold text-white">Create Project</h1>
+        </div>
+
+        <p className="mt-3 text-sm text-slate-400">
+          Create a project to organize requirements, test cases, and AI coverage analyses.
         </p>
       </header>
 
       <form
-        onSubmit={handleSubmit}
-        className="mt-8 space-y-6 rounded-xl border border-slate-800 bg-slate-900 p-6"
+        onSubmit={(event) => void handleSubmit(event)}
+        className="space-y-6 rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-sm"
       >
-        <FormField
-          id="project-name"
-          name="name"
-          type="text"
-          label="Project Name"
-          placeholder="e.g. Authentication System"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value)
-            setNameError('')
-            setPreview(null)
-          }}
-          error={nameError}
-          minLength={2}
-          maxLength={100}
-          required
-        />
+        <div>
+          <label htmlFor="project-name" className="mb-2 block text-sm font-semibold text-slate-200">
+            Project Name
+          </label>
+
+          <input
+            id="project-name"
+            type="text"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value)
+              setError('')
+            }}
+            required
+            minLength={2}
+            maxLength={100}
+            disabled={isSubmitting}
+            placeholder="E-commerce Application"
+            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
+          />
+
+          <p className="mt-2 text-xs text-slate-500">2–100 characters</p>
+        </div>
 
         <div>
           <label
             htmlFor="project-description"
-            className="mb-2 block text-sm font-medium text-slate-200"
+            className="mb-2 block text-sm font-semibold text-slate-200"
           >
             Description
           </label>
 
           <textarea
             id="project-description"
-            name="description"
-            rows={5}
-            maxLength={1000}
             value={description}
             onChange={(event) => {
               setDescription(event.target.value)
-              setPreview(null)
+              setError('')
             }}
-            placeholder="Describe the software functionality you want to test..."
-            className="w-full resize-y rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-blue-500"
+            rows={5}
+            maxLength={1000}
+            disabled={isSubmitting}
+            placeholder="Testing login, shopping cart, and payment functionality."
+            className="w-full resize-y rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
           />
 
-          <p className="mt-2 text-xs text-slate-500">Optional. Maximum 1000 characters.</p>
+          <div className="mt-2 flex justify-between gap-3 text-xs text-slate-500">
+            <span>Optional. Maximum 1000 characters.</span>
+            <span>{description.length}/1000</span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-3 border-t border-slate-800 pt-6">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-800 bg-red-950/40 p-4 text-sm text-red-300"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-end gap-3 border-t border-slate-700 pt-6">
           <Link
             to="/projects"
-            className="rounded-lg border border-slate-700 px-5 py-3 text-sm font-medium text-slate-300 hover:bg-slate-800"
+            aria-disabled={isSubmitting}
+            className="rounded-lg border border-slate-600 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
           >
             Cancel
           </Link>
 
           <button
             type="submit"
-            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            disabled={isSubmitting}
+            className="inline-flex min-w-40 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Preview Project
+            {isSubmitting ? (
+              <>
+                <LoaderCircle size={17} className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <FolderPlus size={17} />
+                Create Project
+              </>
+            )}
           </button>
         </div>
       </form>
 
-      {preview && (
-        <section
-          aria-live="polite"
-          className="mt-6 rounded-xl border border-blue-500/30 bg-blue-500/10 p-6"
-        >
-          <h2 className="text-lg font-semibold text-white">Project Preview</h2>
-
-          <h3 className="mt-4 font-medium text-blue-300">{preview.name}</h3>
-
-          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">
-            {preview.description || 'No description provided.'}
-          </p>
-
-          <p className="mt-4 text-xs text-slate-400">
-            This is a temporary preview. The project has not been saved. Database persistence will
-            be added in Phase 6.
-          </p>
-        </section>
-      )}
+      <p className="text-center text-xs text-slate-500">
+        Your project will be saved securely to Neon PostgreSQL and associated with your account.
+      </p>
     </div>
   )
 }
+
+export default CreateProject

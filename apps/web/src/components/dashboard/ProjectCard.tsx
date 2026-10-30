@@ -1,5 +1,5 @@
 import type { ProjectPreview } from '../../data/mockProjects'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 
 type ProjectCardProps = {
   project: ProjectPreview

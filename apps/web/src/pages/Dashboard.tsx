@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import {
   ArrowRight,
+  BrainCircuit,
   FileText,
   FlaskConical,
   FolderKanban,
@@ -13,7 +14,13 @@ import {
 import { getProjects, type Project } from '../lib/projects-api'
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-US', {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown date'
+  }
+
+  return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -22,6 +29,7 @@ function formatDate(value: string): string {
 
 export function Dashboard() {
   const [projects, setProjects] = useState<Project[] | null>(null)
+
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -30,31 +38,38 @@ export function Dashboard() {
 
     void getProjects(controller.signal)
       .then((result) => {
-        if (!controller.signal.aborted) {
-          setProjects(result)
+        if (controller.signal.aborted) return
+
+        if (!Array.isArray(result)) {
+          throw new Error('The server returned an invalid projects list.')
         }
+
+        setProjects(result)
+        setError('')
       })
       .catch((reason: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : 'Unable to load dashboard.')
-        }
+        if (controller.signal.aborted) return
+
+        setError(reason instanceof Error ? reason.message : 'Unable to load dashboard.')
       })
 
     return () => controller.abort()
   }, [reloadKey])
 
-  function refreshDashboard() {
+  function refresh() {
     setProjects(null)
     setError('')
-    setReloadKey((value) => value + 1)
+    setReloadKey((current) => current + 1)
   }
 
-  const totals = (projects ?? []).reduce(
-    (summary, project) => {
-      summary.requirements += project.requirementCount
-      summary.testCases += project.testCaseCount
-      summary.analyses += project.analysisCount
-      return summary
+  const projectList = projects ?? []
+
+  const totals = projectList.reduce(
+    (result, project) => {
+      result.requirements += project.requirementCount || 0
+      result.testCases += project.testCaseCount || 0
+      result.analyses += project.analysisCount || 0
+      return result
     },
     {
       requirements: 0,
@@ -65,187 +80,275 @@ export function Dashboard() {
 
   const stats = [
     {
-      label: 'Total Projects',
-      value: projects?.length ?? 0,
+      title: 'Total Projects',
+      value: projectList.length,
       icon: FolderKanban,
+      color: 'text-blue-400',
+      background: 'bg-blue-500/10',
     },
     {
-      label: 'Requirements',
+      title: 'Requirements',
       value: totals.requirements,
       icon: FileText,
+      color: 'text-violet-400',
+      background: 'bg-violet-500/10',
     },
     {
-      label: 'Test Cases',
+      title: 'Test Cases',
       value: totals.testCases,
       icon: FlaskConical,
+      color: 'text-cyan-400',
+      background: 'bg-cyan-500/10',
     },
     {
-      label: 'AI Analyses',
+      title: 'AI Analyses',
       value: totals.analyses,
-      icon: Sparkles,
+      icon: BrainCircuit,
+      color: 'text-emerald-400',
+      background: 'bg-emerald-500/10',
     },
   ]
 
-  const recentProjects = [...(projects ?? [])]
+  const recentProjects = [...projectList]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5)
 
+  const nextProject = recentProjects[0]
+
   return (
-    <div className="w-full space-y-8 p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+    <main className="min-h-full w-full bg-[#020617] px-5 py-8 text-white sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-7xl space-y-8">
+        {/* Dashboard header */}
+        <header className="flex flex-wrap items-start justify-between gap-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-400">
+              Workspace Overview
+            </p>
 
-          <p className="mt-2 text-sm text-slate-500">Your project and testing activity overview.</p>
-        </div>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Dashboard
+            </h1>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={refreshDashboard}
-            aria-label="Refresh dashboard"
-            className="rounded-lg border border-slate-300 p-2.5 hover:bg-slate-50"
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Monitor your projects, testing progress, and AI analysis activity.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={refresh}
+              aria-label="Refresh dashboard"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-blue-500 hover:bg-slate-800"
+            >
+              <RefreshCw size={18} />
+            </button>
+
+            <Link
+              to="/projects/new"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-950/40 transition hover:bg-blue-500"
+            >
+              <Plus size={18} />
+              New Project
+            </Link>
+          </div>
+        </header>
+
+        {/* Loading */}
+        {projects === null && !error && (
+          <div
+            role="status"
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-12 text-center"
           >
-            <RefreshCw size={17} />
-          </button>
+            <RefreshCw size={26} className="mx-auto animate-spin text-blue-400" />
 
-          <Link
-            to="/projects/new"
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Plus size={17} />
-            New Project
-          </Link>
-        </div>
-      </header>
+            <p className="mt-4 text-sm text-slate-300">Loading dashboard...</p>
+          </div>
+        )}
 
-      {!projects && !error && (
-        <div role="status" className="py-12 text-center text-sm text-slate-500">
-          Loading dashboard...
-        </div>
-      )}
+        {/* Error */}
+        {error && (
+          <div role="alert" className="rounded-2xl border border-red-500/30 bg-red-950/30 p-6">
+            <h2 className="font-semibold text-red-200">Unable to load dashboard</h2>
 
-      {error && (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm text-red-700">{error}</p>
+            <p className="mt-2 text-sm text-red-300">{error}</p>
 
-          <button
-            type="button"
-            onClick={refreshDashboard}
-            className="mt-3 text-sm font-medium text-red-700 underline"
-          >
-            Try again
-          </button>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={refresh}
+              className="mt-4 rounded-lg bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
 
-      {projects && !error && (
-        <>
-          <section aria-label="Project statistics">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map(({ label, value, icon: Icon }) => (
+        {projects !== null && !error && (
+          <>
+            {/* Real statistics */}
+            <section
+              aria-label="Workspace statistics"
+              className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            >
+              {stats.map(({ title, value, icon: Icon, color, background }) => (
                 <div
-                  key={label}
-                  className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                  key={title}
+                  className="rounded-2xl border border-slate-700/80 bg-slate-900 p-6 shadow-lg shadow-black/20 transition hover:border-blue-500/50 hover:bg-slate-800/80"
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-slate-500">{label}</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm font-semibold text-slate-300">{title}</p>
 
-                    <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
-                      <Icon size={20} />
+                    <div className={`rounded-xl p-3 ${background} ${color}`}>
+                      <Icon size={22} />
                     </div>
                   </div>
 
-                  <p className="mt-5 text-3xl font-bold text-slate-900">{value}</p>
+                  <p className="mt-5 text-4xl font-bold tracking-tight text-white">{value}</p>
 
-                  <p className="mt-2 text-xs text-slate-400">Across your projects</p>
+                  <p className="mt-2 text-xs text-slate-400">Across your workspace</p>
                 </div>
               ))}
-            </div>
-          </section>
+            </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5">
-              <div>
-                <h2 className="text-lg font-semibold">Recent Projects</h2>
-                <p className="mt-1 text-sm text-slate-500">Your most recently updated projects.</p>
+            {/* Recent Projects */}
+            <section className="overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-xl shadow-black/20">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/70 bg-slate-800/50 px-6 py-6">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-400">
+                    Project Activity
+                  </p>
+
+                  <h2 className="mt-2 text-xl font-bold text-white">Recent Projects</h2>
+
+                  <p className="mt-2 text-sm text-slate-300">
+                    Your five most recently updated projects.
+                  </p>
+                </div>
+
+                <Link
+                  to="/projects"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300"
+                >
+                  View All
+                  <ArrowRight size={17} />
+                </Link>
               </div>
 
-              <Link
-                to="/projects"
-                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
-              >
-                View All
-                <ArrowRight size={16} />
-              </Link>
-            </div>
+              {recentProjects.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <FolderKanban size={35} className="mx-auto text-blue-400" />
 
-            {recentProjects.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <FolderKanban size={32} className="mx-auto text-blue-600" />
+                  <h3 className="mt-4 text-lg font-semibold text-white">No projects yet</h3>
 
-                <h3 className="mt-4 font-semibold">No projects yet</h3>
+                  <p className="mt-2 text-sm text-slate-300">Create a project to get started.</p>
 
-                <p className="mt-2 text-sm text-slate-500">
-                  Create your first project to start tracking requirements and test cases.
+                  <Link
+                    to="/projects/new"
+                    className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
+                  >
+                    Create Project
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3 p-5 sm:p-6">
+                  {recentProjects.map((project) => (
+                    <Link
+                      key={project.id}
+                      to={`/projects/${project.id}`}
+                      className="group flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-700 bg-slate-950/70 p-5 transition hover:border-blue-500/60 hover:bg-slate-800"
+                    >
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="rounded-xl bg-blue-500/15 p-3 text-blue-400">
+                          <FolderKanban size={21} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <h3 className="break-words text-base font-semibold text-white group-hover:text-blue-300">
+                            {project.name}
+                          </h3>
+
+                          <p className="mt-1 text-sm text-slate-300">
+                            {project.description || 'No description provided.'}
+                          </p>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200">
+                              {project.requirementCount} Requirements
+                            </span>
+
+                            <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200">
+                              {project.testCaseCount} Test Cases
+                            </span>
+
+                            <span className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200">
+                              {project.analysisCount} Analyses
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-3 text-sm text-slate-300">
+                        {formatDate(project.updatedAt)}
+                        <ArrowRight size={18} className="text-blue-400" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Next action */}
+            <section className="grid gap-5 lg:grid-cols-2">
+              <div className="rounded-2xl border border-blue-500/30 bg-blue-950/30 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-blue-500/15 p-3 text-blue-400">
+                    <Sparkles size={22} />
+                  </div>
+
+                  <h2 className="text-lg font-bold text-white">AI Test Coverage Analysis</h2>
+                </div>
+
+                <p className="mt-4 text-sm leading-7 text-slate-300">
+                  Review requirements and existing tests to identify possible coverage gaps and
+                  generate additional test-case suggestions.
                 </p>
 
                 <Link
-                  to="/projects/new"
-                  className="mt-5 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm text-white"
+                  to={nextProject ? `/projects/${nextProject.id}#ai-analysis` : '/projects/new'}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500"
                 >
-                  Create Project
+                  Open AI Workspace
+                  <ArrowRight size={17} />
                 </Link>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {recentProjects.map((project) => (
-                  <Link
-                    key={project.id}
-                    to={`/projects/${project.id}`}
-                    className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 transition hover:bg-slate-50"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
-                        <FolderKanban size={19} />
-                      </div>
 
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-900">{project.name}</p>
+              <div className="rounded-2xl border border-slate-700/80 bg-slate-900 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-violet-500/15 p-3 text-violet-400">
+                    <FileText size={22} />
+                  </div>
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          {project.requirementCount} requirements
-                          {' · '}
-                          {project.testCaseCount} test cases
-                        </p>
-                      </div>
-                    </div>
+                  <h2 className="text-lg font-bold text-white">Testing Workspace</h2>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-400">
-                        {formatDate(project.updatedAt)}
-                      </span>
+                <p className="mt-4 text-sm leading-7 text-slate-300">
+                  Keep requirements organized, document test scenarios, and connect tests to the
+                  functionality they validate.
+                </p>
 
-                      <ArrowRight size={17} className="text-slate-400" />
-                    </div>
-                  </Link>
-                ))}
+                <Link
+                  to="/projects"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700"
+                >
+                  Manage Projects
+                  <ArrowRight size={17} />
+                </Link>
               </div>
-            )}
-          </section>
-
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-            <h2 className="font-semibold text-slate-900">Test coverage analysis</h2>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Project and record counts now use real database data. Coverage percentages and AI
-              recommendations will be available after we implement requirements, test cases, and
-              analysis workflows.
-            </p>
-          </div>
-        </>
-      )}
-    </div>
+            </section>
+          </>
+        )}
+      </div>
+    </main>
   )
 }
 

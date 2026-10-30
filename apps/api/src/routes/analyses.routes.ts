@@ -4,16 +4,26 @@ import { requireAuth } from '../middleware/requireAuth.js'
 
 import { analyzeProject, saveSuggestionAsTestCase } from '../controllers/analyses.controller.js'
 
+import {
+  getSavedAnalysis,
+  listAnalysisHistory,
+} from '../controllers/analysis-history.controller.js'
+
 export const analysesRouter = Router({
   mergeParams: true,
 })
 
-// All analysis endpoints require authentication.
+// Every analysis route requires authentication.
 analysesRouter.use(requireAuth)
 
-// Run a new analysis.
+// POST: Run a new AI analysis.
 analysesRouter.post('/', analyzeProject)
 
-// Save one suggestion as a real test case.
-// Repeated requests return the existing test case.
+// GET: List saved runs, newest first.
+analysesRouter.get('/', listAnalysisHistory)
+
+// GET: Open one previous analysis.
+analysesRouter.get('/:analysisId', getSavedAnalysis)
+
+// POST: Save an AI suggestion as a real test case.
 analysesRouter.post('/:analysisId/suggestions/:suggestionId/save', saveSuggestionAsTestCase)
