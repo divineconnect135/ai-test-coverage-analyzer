@@ -1,21 +1,27 @@
 import { useEffect, useState, type FormEvent } from 'react'
+
 import { Link, useNavigate, useParams } from 'react-router'
+
 import {
   ArrowLeft,
-  FolderKanban,
-  Pencil,
-  Trash2,
-  Save,
-  X,
+  BrainCircuit,
   FileText,
   FlaskConical,
+  FolderKanban,
+  Pencil,
+  Save,
   Sparkles,
+  Trash2,
+  X,
 } from 'lucide-react'
 
 import { deleteProject, getProject, updateProject, type Project } from '../lib/projects-api'
 
 import { RequirementsSection } from '../components/requirements/RequirementsSection'
+
 import { TestCasesSection } from '../components/test-cases/TestCasesSection'
+
+import { AnalysisSection } from '../components/analysis/AnalysisSection'
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', {
@@ -29,6 +35,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
 
   const [project, setProject] = useState<Project | null>(null)
+
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
@@ -41,7 +48,12 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [actionError, setActionError] = useState('')
 
+  // Used to refresh dependent workspaces.
   const [requirementsVersion, setRequirementsVersion] = useState(0)
+
+  const [savedTestsVersion, setSavedTestsVersion] = useState(0)
+
+  const [analysisInputsVersion, setAnalysisInputsVersion] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -108,6 +120,8 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
       setName(updated.name)
       setDescription(updated.description)
       setIsEditing(false)
+
+      setAnalysisInputsVersion((current) => current + 1)
     } catch (error: unknown) {
       setActionError(error instanceof Error ? error.message : 'Unable to update project.')
     } finally {
@@ -123,9 +137,13 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
 
     try {
       await deleteProject(projectId)
-      navigate('/projects', { replace: true })
+
+      navigate('/projects', {
+        replace: true,
+      })
     } catch (error: unknown) {
       setActionError(error instanceof Error ? error.message : 'Unable to delete project.')
+
       setIsDeleting(false)
     }
   }
@@ -140,9 +158,11 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         : current,
     )
 
-    // Refresh test cases when a requirement is
-    // created or deleted so their links stay current.
+    // Requirements changed: update test-case linking
+    // options and the AI analysis input preview.
     setRequirementsVersion((current) => current + 1)
+
+    setAnalysisInputsVersion((current) => current + 1)
   }
 
   function handleTestCaseCountChange(difference: number) {
@@ -154,6 +174,16 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
           }
         : current,
     )
+
+    setAnalysisInputsVersion((current) => current + 1)
+  }
+
+  function handleSuggestionSaved() {
+    // The suggestion is saved as a new test case.
+    handleTestCaseCountChange(1)
+
+    // Refresh the Test Cases section to display it.
+    setSavedTestsVersion((current) => current + 1)
   }
 
   if (isLoading) {
@@ -190,7 +220,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         Back to Projects
       </Link>
 
-      {/* Project header */}
+      {/* Project header, edit form, and deletion */}
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
@@ -292,6 +322,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 <Save size={16} />
+
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
 
@@ -313,7 +344,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
             <h2 className="font-semibold text-red-800">Delete this project permanently?</h2>
 
             <p className="mt-2 text-sm text-red-700">
-              Deleting "{project.name}" will also remove its requirements, test cases, and analysis
+              Deleting "{project.name}" also deletes its requirements, test cases, and analysis
               history. This action cannot be undone.
             </p>
 
@@ -349,7 +380,7 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         )}
       </section>
 
-      {/* Project statistics */}
+      {/* Live project statistics */}
       <section className="grid gap-4 sm:grid-cols-3">
         {[
           {
@@ -378,31 +409,35 @@ function ProjectDetailsContent({ projectId }: { projectId: string }) {
         ))}
       </section>
 
+      <a
+        href="#ai-analysis"
+        className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
+      >
+        <BrainCircuit size={17} />
+        Go to AI Analysis
+      </a>
+
       {/* Phase 7: Requirements */}
       <RequirementsSection projectId={projectId} onCountChange={handleRequirementCountChange} />
 
       {/* Phase 8: Test Cases */}
       <TestCasesSection
-        key={`${projectId}-${requirementsVersion}`}
+        key={`${projectId}-${requirementsVersion}-${savedTestsVersion}`}
         projectId={projectId}
         onCountChange={handleTestCaseCountChange}
       />
 
-      {/* Future analysis */}
-      <section className="rounded-xl border border-dashed border-slate-300 p-8">
-        <h2 className="text-lg font-semibold">AI Test Coverage Analysis</h2>
-
-        <p className="mt-2 text-sm text-slate-500">
-          Your requirements and test cases are now stored in Neon PostgreSQL. The upcoming analysis
-          phases will compare them, identify gaps, and recommend missing tests.
-        </p>
-      </section>
+      {/* Phase 10: AI analysis and saving suggestions */}
+      <AnalysisSection
+        projectId={projectId}
+        refreshToken={analysisInputsVersion}
+        onTestCaseSaved={handleSuggestionSaved}
+      />
     </div>
   )
 }
 
-// Changing projectId creates a fresh component state.
-// This avoids synchronous state resets inside useEffect.
+// A new project ID creates a fresh page state.
 export function ProjectDetails() {
   const { projectId } = useParams<{
     projectId: string

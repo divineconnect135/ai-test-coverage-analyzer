@@ -15,6 +15,8 @@ import { createProjectSchema, updateProjectSchema } from '../schemas/project.sch
 
 import { testCasesRouter } from './test-cases.routes.js'
 
+import { analysesRouter } from './analyses.routes.js'
+
 export const projectsRouter = Router()
 
 // GET /api/projects
@@ -23,8 +25,11 @@ projectsRouter.get('/', requireAuth, listProjects)
 // POST /api/projects
 projectsRouter.post('/', validateBody(createProjectSchema), requireAuth, createProject)
 
-// Nested test case routes.
+// Phase 8 — Test case CRUD
 projectsRouter.use('/:projectId/test-cases', testCasesRouter)
+
+// Phase 9 — AI analysis
+projectsRouter.use('/:projectId/analyses', analysesRouter)
 
 // GET /api/projects/:projectId
 projectsRouter.get('/:projectId', requireAuth, getProject)
