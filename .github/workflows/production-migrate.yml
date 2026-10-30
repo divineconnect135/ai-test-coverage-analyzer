@@ -29,16 +29,21 @@ jobs:
         run: |
           if [ ! -d apps/api/prisma/migrations ]; then
             echo "Prisma migrations directory is missing."
-            echo "Create and review migrations in development first."
             exit 1
           fi
 
       - name: Apply production migrations
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "PRODUCTION_DATABASE_URL secret is not configured."
+            echo "PRODUCTION_DATABASE_URL secret is missing."
+            exit 1
+          fi
+
+          if [ -z "$DIRECT_URL" ]; then
+            echo "DIRECT_URL is not configured."
             exit 1
           fi
 
