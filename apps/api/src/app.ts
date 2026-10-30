@@ -15,7 +15,7 @@ import { meRouter } from './routes/me.routes.js'
 import { projectsRouter } from './routes/projects.routes.js'
 import { requirementsRouter } from './routes/requirements.routes.js'
 import { installHttpSecurity } from './security/httpSecurity.js'
-
+import { serveProductionFrontend } from './lib/serveFrontend.js'
 export const app = express()
 installHttpSecurity(app)
 
@@ -57,9 +57,17 @@ app.use('/api/me', meRouter)
 // Requirements routes must receive projectId.
 app.use('/api/projects/:projectId/requirements', requirementsRouter)
 
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+  })
+})
+
 // Existing project CRUD routes.
 app.use('/api/projects', projectsRouter)
 
 // Unknown routes and error handling.
 app.use('/api', notFound)
 app.use(errorHandler)
+
+serveProductionFrontend(app)

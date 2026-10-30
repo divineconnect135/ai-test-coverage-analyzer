@@ -1,0 +1,45 @@
+name: Production Database Migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply Prisma Migrations
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Check migration directory
+        run: |
+          if [ ! -d apps/api/prisma/migrations ]; then
+            echo "Prisma migrations directory is missing."
+            echo "Create and review migrations in development first."
+            exit 1
+          fi
+
+      - name: Apply production migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "PRODUCTION_DATABASE_URL secret is not configured."
+            exit 1
+          fi
+
+          npm exec --workspace apps/api -- prisma migrate deploy
