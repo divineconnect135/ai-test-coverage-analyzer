@@ -1,200 +1,293 @@
-import { useState, type FormEvent } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, Loader2, ShieldCheck, Sparkles } from 'lucide-react'
 
 import { authClient } from '../../lib/auth-client'
 
+type AuthFormMode = 'login' | 'register' | 'sign-in' | 'sign-up'
+
 type AuthFormProps = {
-  mode: 'login' | 'register'
+  mode: AuthFormMode
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
   const navigate = useNavigate()
-  const isRegister = mode === 'register'
+
+  const isRegister = mode === 'register' || mode === 'sign-up'
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formError, setFormError] = useState('')
+
+  const content = useMemo(() => {
+    if (isRegister) {
+      return {
+        title: 'Create your account',
+        subtitle:
+          'Register to manage your testing projects, requirements, and AI analysis workflows.',
+        submitLabel: 'Create account',
+        switchText: 'Already have an account?',
+        switchLinkText: 'Sign in',
+        switchHref: '/login',
+      }
+    }
+
+    return {
+      title: 'Welcome back',
+      subtitle: 'Sign in to access your projects, test cases, and AI-powered coverage analysis.',
+      submitLabel: 'Sign in',
+      switchText: "Don't have an account?",
+      switchLinkText: 'Create an account',
+      switchHref: '/register',
+    }
+  }, [isRegister])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (isSubmitting) return
 
-    setFormError('')
+    setError('')
 
-    if (isRegister && password !== confirmPassword) {
-      setFormError('Passwords do not match.')
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim().toLowerCase()
+
+    if (!trimmedEmail || !password) {
+      setError('Please fill in all required fields.')
       return
+    }
+
+    if (isRegister) {
+      if (!trimmedName) {
+        setError('Please enter your full name.')
+        return
+      }
+
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long.')
+        return
+      }
+
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.')
+        return
+      }
     }
 
     setIsSubmitting(true)
 
     try {
-      const normalizedEmail = email.trim().toLowerCase()
-
       if (isRegister) {
         const result = await authClient.signUp.email({
-          name: name.trim(),
-          email: normalizedEmail,
+          name: trimmedName,
+          email: trimmedEmail,
           password,
         })
 
         if (result.error) {
-          setFormError(result.error.message ?? 'Registration failed.')
+          setError(result.error.message ?? 'Unable to create account.')
           return
         }
       } else {
         const result = await authClient.signIn.email({
-          email: normalizedEmail,
+          email: trimmedEmail,
           password,
         })
 
         if (result.error) {
-          setFormError(result.error.message ?? 'Invalid login credentials.')
+          setError(result.error.message ?? 'Unable to sign in.')
           return
         }
       }
 
       navigate('/dashboard', { replace: true })
     } catch {
-      setFormError('Unable to complete the request. Please try again.')
+      setError(
+        isRegister
+          ? 'Something went wrong while creating your account.'
+          : 'Something went wrong while signing in.',
+      )
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const inputClass =
-    'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100'
-
   return (
-    <section className="mx-auto w-full max-w-md px-5 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-        {isRegister ? 'Create your account' : 'Welcome back'}
-      </h1>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.18),transparent_30%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(15,23,42,0.3),rgba(2,6,23,0.88))]" />
 
-      <p className="mt-2 text-sm text-slate-600">
-        {isRegister
-          ? 'Register to manage your testing projects.'
-          : 'Sign in to access your projects and analyses.'}
-      </p>
+      <div className="relative mx-auto flex min-h-screen max-w-7xl items-center justify-center px-6 py-12">
+        <div className="grid w-full max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <section className="hidden lg:block">
+            <div className="max-w-xl">
+              <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200 shadow-[0_0_30px_rgba(59,130,246,0.15)]">
+                <Sparkles size={16} />
+                AI Test Coverage Analyzer
+              </div>
 
-      <form onSubmit={(event) => void handleSubmit(event)} className="mt-8 space-y-5">
-        {isRegister && (
-          <div>
-            <label htmlFor="auth-name" className="block text-sm font-medium text-slate-700">
-              Full name
-            </label>
+              <h1 className="text-4xl font-bold tracking-tight text-white xl:text-5xl">
+                Build better test coverage with clear requirements and AI-assisted insights.
+              </h1>
 
-            <input
-              id="auth-name"
-              type="text"
-              autoComplete="name"
-              required
-              maxLength={100}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className={inputClass}
-              placeholder="Your name"
-            />
-          </div>
-        )}
+              <p className="mt-5 text-lg leading-8 text-slate-300">
+                Organize your projects, manage requirements, create test cases, and discover
+                possible testing gaps with a clean workflow built for modern QA and software teams.
+              </p>
 
-        <div>
-          <label htmlFor="auth-email" className="block text-sm font-medium text-slate-700">
-            Email address
-          </label>
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+                  <div className="mb-3 inline-flex rounded-xl bg-blue-500/15 p-2 text-blue-300">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <h2 className="text-base font-semibold text-white">
+                    Structured project workspace
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Keep requirements, linked test cases, and analysis history in one place.
+                  </p>
+                </div>
 
-          <input
-            id="auth-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={inputClass}
-            placeholder="you@example.com"
-          />
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+                  <div className="mb-3 inline-flex rounded-xl bg-cyan-500/15 p-2 text-cyan-300">
+                    <Sparkles size={18} />
+                  </div>
+                  <h2 className="text-base font-semibold text-white">
+                    AI-assisted recommendations
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    Surface possible coverage gaps and convert suggestions into test cases.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mx-auto w-full max-w-xl">
+            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-blue-950/40 backdrop-blur-xl sm:p-8">
+              <div className="mb-8 lg:hidden">
+                <div className="mb-4 inline-flex items-center gap-3 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200">
+                  <Sparkles size={16} />
+                  AI Test Coverage Analyzer
+                </div>
+              </div>
+
+              <header className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                  {content.title}
+                </h1>
+                <p className="mt-3 text-base leading-7 text-slate-300">{content.subtitle}</p>
+              </header>
+
+              {error && (
+                <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+
+              <form className="space-y-5" onSubmit={handleSubmit}>
+                {isRegister && (
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="block text-sm font-medium text-slate-200">
+                      Full name
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Your name"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800/90 px-4 py-3 text-base text-white placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-slate-200">
+                    Email address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/90 px-4 py-3 text-base text-white placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="password" className="block text-sm font-medium text-slate-200">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800/90 px-4 py-3 text-base text-white placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                {isRegister && (
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="confirmPassword"
+                      className="block text-sm font-medium text-slate-200"
+                    >
+                      Confirm password
+                    </label>
+                    <input
+                      id="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      placeholder="Confirm your password"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-800/90 px-4 py-3 text-base text-white placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} />
+                      {isRegister ? 'Creating account...' : 'Signing in...'}
+                    </>
+                  ) : (
+                    <>
+                      {content.submitLabel}
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center text-sm text-slate-300">
+                {content.switchText}{' '}
+                <Link
+                  to={content.switchHref}
+                  className="font-semibold text-blue-400 transition hover:text-blue-300"
+                >
+                  {content.switchLinkText}
+                </Link>
+              </div>
+            </div>
+          </section>
         </div>
-
-        <div>
-          <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700">
-            Password
-          </label>
-
-          <input
-            id="auth-password"
-            type="password"
-            autoComplete={isRegister ? 'new-password' : 'current-password'}
-            minLength={8}
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className={inputClass}
-            placeholder="Enter your password"
-          />
-        </div>
-
-        {isRegister && (
-          <div>
-            <label
-              htmlFor="auth-confirm-password"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Confirm password
-            </label>
-
-            <input
-              id="auth-confirm-password"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              required
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              className={inputClass}
-              placeholder="Confirm your password"
-            />
-          </div>
-        )}
-
-        {formError && (
-          <p
-            role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-          >
-            {formError}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting ? 'Please wait...' : isRegister ? 'Create account' : 'Sign in'}
-        </button>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-slate-600">
-        {isRegister ? (
-          <>
-            Already have an account?{' '}
-            <Link to="/login" className="font-medium text-blue-600 hover:underline">
-              Sign in
-            </Link>
-          </>
-        ) : (
-          <>
-            Don't have an account?{' '}
-            <Link to="/register" className="font-medium text-blue-600 hover:underline">
-              Create an account
-            </Link>
-          </>
-        )}
-      </p>
-    </section>
+      </div>
+    </div>
   )
 }
