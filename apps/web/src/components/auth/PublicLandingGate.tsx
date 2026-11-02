@@ -8,6 +8,22 @@ type PublicLandingGateProps = {
   children: ReactNode
 }
 
+function hasAuthenticatedUser(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || !('user' in value)) {
+    return false
+  }
+
+  const user = value.user
+
+  return (
+    typeof user === 'object' &&
+    user !== null &&
+    'id' in user &&
+    typeof user.id === 'string' &&
+    user.id.length > 0
+  )
+}
+
 export function PublicLandingGate({ children }: PublicLandingGateProps) {
   const { data: session, isPending } = authClient.useSession()
 
@@ -26,7 +42,7 @@ export function PublicLandingGate({ children }: PublicLandingGateProps) {
     )
   }
 
-  if (session?.user) {
+  if (hasAuthenticatedUser(session)) {
     return <Navigate to="/dashboard" replace />
   }
 
