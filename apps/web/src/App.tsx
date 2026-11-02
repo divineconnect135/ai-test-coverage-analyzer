@@ -11,6 +11,7 @@ import Projects from './pages/Projects'
 import CreateProject from './pages/CreateProject'
 import NotFound from './pages/NotFound'
 import ProjectDetails from './pages/ProjectDetails'
+import { PublicLandingGate } from './components/auth/PublicLandingGate'
 
 import { RequireAuth, GuestOnly } from './components/auth/AuthRoutes'
 
@@ -19,7 +20,14 @@ export default function App() {
     <Routes>
       {/* Public layout */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<Landing />} />
+        <Route
+          path="/"
+          element={
+            <PublicLandingGate>
+              <Landing />
+            </PublicLandingGate>
+          }
+        />
 
         <Route element={<GuestOnly />}>
           <Route path="/login" element={<Login />} />
