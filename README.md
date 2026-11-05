@@ -14,13 +14,21 @@ Built with React, TypeScript, Express, PostgreSQL, Prisma, Better Auth, and the 
 
 ## Screenshots
 
-### Landing Page
+### Dashboard
 
-![Landing Page](docs/screenshots/landing-hero.png)
+![Dashboard](docs/screenshots/dashboard.png)
 
 ### Features and Workflow
 
 ![Features](docs/screenshots/landing-features.png)
+
+### Requirements & Test Cases
+
+![Test Management](docs/screenshots/test-management.png)
+
+### AI Test Analysis
+
+![AI Analysis](docs/screenshots/ai-analysis.png)
 
 ## Overview
 
